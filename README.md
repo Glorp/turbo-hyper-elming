@@ -7,3 +7,5 @@
 ### stuf
 
 neh.
+
+maybe run `elm-server`
