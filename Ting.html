@@ -9,7 +9,9 @@
 <body/>
 
 <script type="text/javascript">
-  var stamps = Elm.fullscreen(Elm.Ting, {});
+  var ting = Elm.fullscreen(Elm.Ting, {inn:"broken"});
+  function brokener(s) { ting.ports.inn.send("broken " + s) }
+  ting.ports.out.subscribe(brokener);
 </script>
 
 </html>

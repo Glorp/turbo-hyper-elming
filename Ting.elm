@@ -36,6 +36,11 @@ respToStr x = case x of
                  Http.Waiting     -> ":|"
                  Http.Failure i s -> String.append ":((( " s
 
+port out : Signal String
+port out = lift respToStr res
+
+port inn : Signal String
+
 strToGUI s = let foo x = case x of
                         Json.String s -> Input.button handle (Just (Http.get s)) s
                         _             -> plainText ":/"
@@ -44,4 +49,5 @@ strToGUI s = let foo x = case x of
                _                   -> plainText (String.concat [":( -- ", s])
 
 
-main = lift (flow right) (combine [field, constant b, lift (respToStr >> strToGUI) res])
+main = lift (flow down) (combine [lift (flow right) (combine [field, constant b, lift (respToStr >> strToGUI) res]),
+                                  lift plainText inn])
