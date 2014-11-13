@@ -7,6 +7,7 @@ import Http
 import Json
 import Dict
 import Color
+import Window
 
 id x = x
 
@@ -86,5 +87,8 @@ port out = lift respToStr res
 
 port inn : Signal Json.Value
 
-main = lift (flow down) (combine [lift (flow right) (combine [field, constant b]),
-                                  lift (flow right) (combine [lift (respToStr >> strToGUI) res])])
+centered (w,h) e = container w h midTop e
+
+main = let hed  = lift (flow right) (combine [field, constant b])
+           stuf = lift (flow right) (combine [lift (respToStr >> strToGUI) res])
+       in lift2 centered Window.dimensions (lift (flow down) (combine [hed, stuf]))
