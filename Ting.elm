@@ -25,7 +25,10 @@ renderJson x = case x of
                    Json.Object d  -> let render (k, v) = flow right [plainText k,
                                                                      plainText ": ",
                                                                      renderJson v]
-                                     in bordered (flow down (map render (Dict.toList d)))
+                                         l = Dict.toList d
+                                     in (case l of
+                                             [] -> empty
+                                             _  -> bordered (flow down (map render l)))
 
 
 renderStuff j l = let renderD d l = case l of
@@ -38,10 +41,12 @@ renderStuff j l = let renderD d l = case l of
                          _             -> renderJson j
 
 renderLink j = case j of
-                   Json.Object d -> (case (Dict.get "href" d) of
-                                         Just (Json.String s)  -> beside (renderJson (Json.Object d))
-                                                                         (Input.button handle (Just (Http.get s)) "boop")
-                                         _                     -> renderJson j)
+                   Json.Object d -> (case (Dict.get "href" d, Dict.get "rel" d) of
+                                         (Just (Json.String h), Just r)  -> beside (renderJson (Json.Object (Dict.remove "rel" (Dict.remove "href" d))))
+                                                                                   (Input.clickable handle (Just (Http.get h)) (renderJson r))
+                                         (Just (Json.String h), Nothing) -> beside (renderJson (Json.Object (Dict.remove "href" d)))
+                                                                                   (Input.clickable handle (Just (Http.get h)) (plainText h))
+                                         _                               -> renderJson j)
                    _             -> renderJson j
 
 renderLinks j = case j of

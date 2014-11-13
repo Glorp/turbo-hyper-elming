@@ -8,5 +8,5 @@
                                          "type": "text"},
                                         {"name": "character class",
                                          "type": "text"}]}],
-                "links": [{"rel": [ "wa?" ],
+                "links": [{"rel": [ "to mip!" ],
                            "href": "mip.txt"}]}

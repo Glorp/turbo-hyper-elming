@@ -8,6 +8,6 @@
                                          "type": "text"},
                                         {"name": "character class",
                                          "type": "text"}]}],
-                "links": [{"rel": [ "wu?" ],
+                "links": [{"rel": [ "to meh!" ],
                            "href": "meh.txt"}]}
 
