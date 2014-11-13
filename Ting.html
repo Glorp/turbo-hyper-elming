@@ -9,9 +9,8 @@
 <body/>
 
 <script type="text/javascript">
-  var ting = Elm.fullscreen(Elm.Ting, {inn:"broken"});
-  function brokener(s) { ting.ports.inn.send("broken " + s) }
-  ting.ports.out.subscribe(brokener);
+  var ting = Elm.fullscreen(Elm.Ting, {inn: ["boop"]});
+  function thingety(s) {ting.ports.inn.send("beep")}
+  ting.ports.out.subscribe(thingety);
 </script>
-
 </html>

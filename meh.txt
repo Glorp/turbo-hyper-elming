@@ -1,1 +1,12 @@
-["mip.txt", "meh.txt"]
+
+{"properties": {"name": "The Magical Void", "description": "You are in the Magical Meh.", "bleh": "meh" },
+                "actions": [{"name": "start-adventure",
+                             "title": "Start adventure",
+                             "method": "POST",
+                             "href": "http://hyperwizard.azurewebsites.net/hywit/void",
+                             "fields": [{"name": "name",
+                                         "type": "text"},
+                                        {"name": "character class",
+                                         "type": "text"}]}],
+                "links": [{"rel": [ "wa?" ],
+                           "href": "mip.txt"}]}
