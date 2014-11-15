@@ -9,8 +9,24 @@
 <body/>
 
 <script type="text/javascript">
-  var ting = Elm.fullscreen(Elm.Ting, {inn: ["boop"]});
-  function thingety(s) {ting.ports.inn.send("beep")}
-  ting.ports.out.subscribe(thingety);
+  var ting = Elm.fullscreen(Elm.Ting, {inn: null});
+
+    function thingety(s) {
+        ting.ports.inn.send(null);
+        var xhr = new XMLHttpRequest();
+        xhr.open(s.verb, s.url, true);
+        xhr.onload = function(){
+            ting.ports.inn.send({respText: xhr.responseText,
+                                 status: xhr.status,
+                                 statusText: xhr.statusText,
+                                 headers : xhr.getAllResponseHeaders()});
+            console.log(xhr);
+            console.log("bli");
+
+        }
+        xhr.send();
+    }
+
+    ting.ports.out.subscribe(thingety);
 </script>
 </html>

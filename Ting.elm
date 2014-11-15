@@ -76,24 +76,26 @@ b = Input.button binput.handle () "beep"
 
 
 
-res = Http.send reqSig
-
-respToStr x = case x of
-                 Http.Success s   -> s
-                 Http.Waiting     -> ":|"
-                 Http.Failure i s -> String.append ":((( " s
-
 strToGUI s = case Json.fromString s of
                  Just x -> renderStuff x [("links", renderLinks)]
                  _      -> plainText (String.concat ["not soap? :() ", s])
 
-port out : Signal String
-port out = lift respToStr res
+respToGUI x = case x of
+                 Nothing -> plainText "..."
+                 Just r  -> flow down [(plainText (String.concat ["Status: " , show (r.status), ", ", r.statusText])),
+                                       (case r.headers of
+                                            Nothing -> empty
+                                            Just h  -> plainText h),
+                                       strToGUI r.respText]
 
-port inn : Signal Json.Value
+port out : Signal (Http.Request String)
+port out = reqSig
 
-centered (w,h) e = container w h midTop e
+port inn : Signal (Maybe {respText : String, status : Int, statusText : String, headers : Maybe String})
+
+centered w e = container w (heightOf e) midTop e
 
 main = let hed  = lift (flow right) (combine [field, constant b])
-           stuf = lift (flow right) (combine [lift (respToStr >> strToGUI) res])
-       in lift2 centered Window.dimensions (lift (flow down) (combine [hed, stuf]))
+           stuf = lift (flow right) (combine [lift respToGUI inn])
+       in lift (flow down) (combine [lift2 centered Window.width hed,
+                                     lift2 centered Window.width stuf])
