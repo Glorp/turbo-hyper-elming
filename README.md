@@ -2,7 +2,7 @@
 
 ### buld instruktiens
 
-    elm --only-js Ting.elm
+    elm --only-js -m Ting.elm Graphecs.elm
 
 ### stuf
 
