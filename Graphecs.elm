@@ -34,8 +34,8 @@ renderKV l = let maxW = foldl (\(e, _) n -> max (widthOf e) n) 0 l
                  foo (e1, e2) = beside (leftAl maxW e1) e2
              in flow down (map spacey (map foo l))
 
-renderJsonBut : Json.Value -> [(String, Json.Value -> Element)] -> Element
-renderJsonBut j l =
+renderJsonBut : [(String, Json.Value -> Element)] -> Json.Value -> Element
+renderJsonBut l j =
     let remove d kvs = foldl Dict.remove d (map fst kvs)
         consDKV d (k, f) kvs = case Dict.get k d of
                              Just v  -> (k, f, v) :: kvs

@@ -33,9 +33,14 @@ port out = reqSig
 port inn : Signal (Maybe Response)
 
 strToGUI : String -> Element
-strToGUI s = case Json.fromString s of
-                 Just x -> Gfx.renderJsonBut x [("links", renderLinks)]
-                 _      -> plainText (concat ["not soap? :() ", s])
+strToGUI s =
+    let renderl = [("properties", Gfx.renderJsonBut [("name", Gfx.renderJson),
+                                                     ("description", Gfx.renderJson)]),
+                   ("links", renderLinks),
+                   ("actions", Gfx.renderJson)]
+    in case Json.fromString s of
+           Just x -> Gfx.renderJsonBut renderl x
+           _      -> plainText (concat ["not soap? :() ", s])
 
 respToGUI : Maybe Response -> Element
 respToGUI x =
