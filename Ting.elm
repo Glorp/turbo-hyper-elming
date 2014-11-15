@@ -35,13 +35,13 @@ port inn : Signal (Maybe Response)
 strToGUI : String -> Element
 strToGUI s = case Json.fromString s of
                  Just x -> Gfx.renderJsonBut x [("links", renderLinks)]
-                 _      -> plainText (String.concat ["not soap? :() ", s])
+                 _      -> plainText (concat ["not soap? :() ", s])
 
 respToGUI : Maybe Response -> Element
 respToGUI x =
     case x of
         Nothing -> plainText "..."
-        Just r  -> flow down [(plainText (String.concat ["Status: " , show (r.status), ", ", r.statusText])),
+        Just r  -> flow down [(plainText (concat ["Status: " , show (r.status), ", ", r.statusText])),
                                        (case r.headers of
                                             Nothing -> empty
                                             Just h  -> plainText h),

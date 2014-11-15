@@ -5,10 +5,14 @@ import Json
 import Dict
 import Color
 
+spacec : Color.Color -> Element -> Element
+spacec c e = color c (container (4 + widthOf e) (4 + heightOf e) middle e)
+
+spacey : Element -> Element
+spacey e = spacec Color.white e
+
 bordered : Color.Color -> Element -> Element
-bordered col e = let (x, y) = sizeOf e
-                     c      = color Color.white (container (x + 4) (y + 4) middle e)
-                 in color col (container (x + 8) (y + 8) middle c)
+bordered c e = spacec c (spacey e)
 
 renderJson : Json.Value -> Element
 renderJson x = case x of
@@ -17,23 +21,29 @@ renderJson x = case x of
                    Json.Boolean b -> plainText (show b)
                    Json.Null      -> plainText "null"
                    Json.Array l   -> flow right (join [plainText ", "] [map renderJson l])
-                   Json.Object d  -> let render (k, v) = flow right [plainText k,
-                                                                     plainText ": ",
-                                                                     renderJson v]
-                                         l = Dict.toList d
-                                     in (case l of
-                                             [] -> empty
-                                             _  -> bordered Color.darkGrey (flow down (map render l)))
+                   Json.Object d  -> case renderD d of
+                                         [] -> empty
+                                         l  -> bordered Color.darkGrey (renderKV l)
+
+renderD : Dict.Dict String Json.Value -> [(Element, Element)]
+renderD d = let render (k, v) = (plainText (concat [k, ": "]), renderJson v)
+            in map render (Dict.toList d)
+
+renderKV : [(Element, Element)] -> Element
+renderKV l = let maxW = foldl (\(e, _) n -> max (widthOf e) n) 0 l
+                 foo (e1, e2) = beside (leftAl maxW e1) e2
+             in flow down (map spacey (map foo l))
 
 renderJsonBut : Json.Value -> [(String, Json.Value -> Element)] -> Element
 renderJsonBut j l =
-    let renderD d l = case l of
-                          []           -> renderJson (Json.Object d)
-                          (s, f) :: xs -> (case Dict.get s d of
-                                               Just j  -> above (f j) (renderD (Dict.remove s d) xs)
-                                               Nothing -> renderD d xs)
+    let remove d kvs = foldl Dict.remove d (map fst kvs)
+        consDKV d (k, f) kvs = case Dict.get k d of
+                             Just v  -> (k, f, v) :: kvs
+                             Nothing -> kvs
+        keyVals d kvs = foldr (consDKV d) [] kvs
+        render (k, f, v) = (plainText (concat [k, ": "]), f v)
     in case j of
-           Json.Object d -> renderD d l
+           Json.Object d -> renderKV (concat [map render (keyVals d l), renderD (remove d l)])
            _             -> renderJson j
 
 butt : Input.Handle a -> a -> Element -> Element
@@ -48,3 +58,11 @@ makeField s ss = let content = Input.input (Field.Content ss (Field.Selection 0 
 
 centered : Int -> Element -> Element
 centered w e = container w (heightOf e) midTop e
+
+leftAl : Int -> Element -> Element
+leftAl w e = container w (heightOf e) topLeft e
+
+
+
+
+
