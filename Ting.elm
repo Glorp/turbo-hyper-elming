@@ -3,7 +3,6 @@ import Graphics.Input.Field as Field
 import Graphics.Input as Input
 import String
 import Maybe
-import Http
 import Json
 import Dict
 import Color
@@ -11,9 +10,14 @@ import Window
 
 id x = x
 
-bordered e = let (x, y) = sizeOf e
-                 c      = color Color.white (container (x + 4) (y + 4) middle e)
-             in color Color.darkGrey (container (x + 8) (y + 8) middle c)
+type Request = {url : String, verb : String, headers : [String]}
+type Response = {respText : String, status : Int, statusText : String, headers : Maybe String}
+getReq : String -> Request
+getReq s = {url = s, verb = "GET", headers = []}
+
+bordered col e = let (x, y) = sizeOf e
+                     c      = color Color.white (container (x + 4) (y + 4) middle e)
+                 in color col (container (x + 8) (y + 8) middle c)
 
 renderJson : Json.Value -> Element
 renderJson x = case x of
@@ -28,7 +32,7 @@ renderJson x = case x of
                                          l = Dict.toList d
                                      in (case l of
                                              [] -> empty
-                                             _  -> bordered (flow down (map render l)))
+                                             _  -> bordered Color.darkGrey (flow down (map render l)))
 
 
 renderStuff j l = let renderD d l = case l of
@@ -40,12 +44,16 @@ renderStuff j l = let renderD d l = case l of
                          Json.Object d -> renderD d l
                          _             -> renderJson j
 
+butt h v e = Input.customButton h v (bordered (Color.lightBlue) e)
+                                    (bordered (Color.blue) e)
+                                    (bordered (Color.darkBlue) e)
+
 renderLink j = case j of
                    Json.Object d -> (case (Dict.get "href" d, Dict.get "rel" d) of
                                          (Just (Json.String h), Just r)  -> beside (renderJson (Json.Object (Dict.remove "rel" (Dict.remove "href" d))))
-                                                                                   (Input.clickable handle (Just (Http.get h)) (renderJson r))
+                                                                                   (butt handle (Just (getReq h)) (renderJson r))
                                          (Just (Json.String h), Nothing) -> beside (renderJson (Json.Object (Dict.remove "href" d)))
-                                                                                   (Input.clickable handle (Just (Http.get h)) (plainText h))
+                                                                                   (butt handle (Just (getReq h)) (plainText h))
                                          _                               -> renderJson j)
                    _             -> renderJson j
 
@@ -67,13 +75,9 @@ b = Input.button binput.handle () "beep"
                               inp = Input.input Nothing
                               (field, content) = makeField "Thing" addr
                               fieldSig = sampleOn binput.signal content
-                              fieldReqSig = lift (.string >> Http.get >> Just) fieldSig
-                              mergef mReq req = case mReq of
-                                                    Just r  -> r
-                                                    Nothing -> req
-                              reqSig = foldp mergef (Http.get addr) (merge fieldReqSig inp.signal)
+                              fieldReqSig = lift (.string >> getReq >> Just) fieldSig
+                              reqSig = merge fieldReqSig inp.signal
                           in (field, inp.handle, reqSig)
-
 
 
 strToGUI s = case Json.fromString s of
@@ -88,10 +92,10 @@ respToGUI x = case x of
                                             Just h  -> plainText h),
                                        strToGUI r.respText]
 
-port out : Signal (Http.Request String)
+port out : Signal (Maybe Request)
 port out = reqSig
 
-port inn : Signal (Maybe {respText : String, status : Int, statusText : String, headers : Maybe String})
+port inn : Signal (Maybe Response)
 
 centered w e = container w (heightOf e) midTop e
 
