@@ -49,11 +49,15 @@ respToGUI x =
 
 renderLink : Json.Value -> Element
 renderLink j =
-    let rend d = case (Dict.get "href" d, Dict.get "rel" d) of
-                     (Just (Json.String h), Just r)  -> beside (Gfx.renderJson (Json.Object (Dict.remove "rel" (Dict.remove "href" d))))
-                                                               (Gfx.butt handle (Just (getReq h)) (Gfx.renderJson r))
-                     (Just (Json.String h), Nothing) -> beside (Gfx.renderJson (Json.Object (Dict.remove "href" d)))
-                                                               (Gfx.butt handle (Just (getReq h)) (plainText h))
+    let link s e d = beside (Gfx.renderJson (Json.Object d))
+                            (Gfx.butt handle (Just (getReq s)) e)
+        rend d = case (Dict.get "href" d, Dict.get "rel" d) of
+                     (Just (Json.String h), Just r)  -> link h
+                                                             (Gfx.renderJson r)
+                                                             (Dict.remove "rel" (Dict.remove "href" d))
+                     (Just (Json.String h), Nothing) -> link h
+                                                             (plainText h)
+                                                             (Dict.remove "href" d)
                      _                               -> Gfx.renderJson j
     in case j of
        Json.Object d -> rend d
@@ -65,6 +69,7 @@ renderLinks j = case j of
                     _            -> Gfx.renderJson j
 
 
+main : Signal Element
 main = let hed  = lift (flow right) (combine [field, constant b])
            stuf = lift (flow right) (combine [lift respToGUI inn])
        in lift (flow down) (combine [lift2 Gfx.centered Window.width hed,
