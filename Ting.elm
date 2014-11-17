@@ -87,15 +87,15 @@ getContent k d = case Dict.get k d of
 renderAction fs j =
   let content = Field.Content "" (Field.Selection 0 0 Field.Forward)
       foo f x = Just (f, x)
-      rendField f = case f of
-                        Json.Object d -> (case Dict.get "name" d of
-                                              Just (Json.String s) -> beside (plainText (concat [s, ": "]))
-                                                                             (Field.field Field.defaultStyle actionFieldInp.handle (foo s) "" (getContent s fs))
-                                              _                    -> plainText "rendField-inner, nope :(")
-                        _             -> plainText "rendField, nope :("
-      rend d = case Dict.get "fields" d of
-                   Just (Json.Array l)  -> flow down (map rendField l)
-                   _                    -> plainText "rend, nope :("
+      rendField name f = case f of
+                             Json.Object d -> (case Dict.get "name" d of
+                                                   Just (Json.String s) -> beside (plainText (concat [s, ": "]))
+                                                                                  (Field.field Field.defaultStyle actionFieldInp.handle (foo (name, s)) "" (getContent (name, s) fs))
+                                                   _                    -> plainText "rendField-inner, nope :(")
+                             _                  -> plainText "rendField, nope :("
+      rend d = case (Dict.get "name" d, Dict.get "fields" d) of
+                   (Just (Json.String s), Just (Json.Array l))  -> Gfx.bordered Color.darkGray (flow down (plainText s :: (map (rendField s) l)))
+                   _                                            -> plainText "rend, nope :("
   in case j of
          Json.Object d -> beside (rend d) (Input.button handle Nothing "boop")
          _             -> plainText "renderAction, nope :("
