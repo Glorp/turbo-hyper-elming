@@ -13,11 +13,11 @@
   var ting = Elm.fullscreen(Elm.Ting, {inn: null});
 
     function thingety(req) {
-        if (req) ting.ports.inn.send([req, null]);
-        else {
+        if (!req) {
             ting.ports.inn.send(null);
-            if (!req) return;
+            return;
         }
+        ting.ports.inn.send([req, null]);
 
         var xhr = new XMLHttpRequest();
         xhr.open(req.verb, req.url, true);
