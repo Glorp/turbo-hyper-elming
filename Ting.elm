@@ -11,6 +11,7 @@ import Window
 
 type Request = {url : String, verb : String, headers : [String]}
 type Response = {respText : String, status : Int, statusText : String, headers : Maybe String}
+type FieldDict = Dict.Dict String (Dict.Dict String Field.Content)
 
 getReq : String -> Request
 getReq s = {url = s, verb = "GET", headers = []}
@@ -19,20 +20,32 @@ binput = Input.input ()
 
 b = Input.button binput.handle () "beep"
 
-(field, handle, reqSig) = let addr = "meh.txt"
-                              inp = Input.input Nothing
-                              (field, content) = Gfx.makeField "Thing" addr
-                              fieldSig = sampleOn binput.signal content
-                              fieldReqSig = lift (.string >> getReq >> Just) fieldSig
-                              reqSig = merge fieldReqSig inp.signal
-                          in (field, inp.handle, reqSig)
+things : (Signal Element, Input.Handle (Maybe Request), Signal (Maybe Request))
+things = let addr = "meh.txt"
+             inp = Input.input Nothing
+             (field, content) = Gfx.makeField "Thing" addr
+             fieldSig = sampleOn binput.signal content
+             fieldReqSig = lift (.string >> getReq >> Just) fieldSig
+             reqSig = merge fieldReqSig inp.signal
+         in (field, inp.handle, reqSig)
+
+(field, handle, reqSig) = things
+
+actionFieldInp = Input.input Nothing
+
+actionFieldSig : Signal FieldDict
+actionFieldSig = let foo x d = case x of
+                                   Nothing        -> Dict.empty
+                                   Just (a, f, c) -> insContent a f c d
+                 in foldp foo Dict.empty (merge actionFieldInp.signal (lift (\_ -> Nothing) reqSig))
+
 
 port out : Signal (Maybe Request)
 port out = reqSig
 
 port inn : Signal (Maybe Response)
 
-strToGUI : String -> Dict.Dict String (Dict.Dict String Field.Content) -> Element
+strToGUI : String -> FieldDict -> Element
 strToGUI s fs =
     let renderl = [("properties", Gfx.renderJsonBut [("name", Gfx.renderJson),
                                                      ("description", Gfx.renderJson)]),
@@ -42,7 +55,7 @@ strToGUI s fs =
            Just x -> Gfx.renderJsonBut renderl x
            _      -> plainText (concat ["not soap? :() ", s])
 
-respToGUI : Maybe Response -> Dict.Dict String (Dict.Dict String Field.Content) -> Element
+respToGUI : Maybe Response -> FieldDict -> Element
 respToGUI x fs =
     case x of
         Nothing -> plainText "..."
@@ -73,13 +86,7 @@ renderLinks j = case j of
                     Json.Array l -> flow down (map renderLink l)
                     _            -> Gfx.renderJson j
 
-actionFieldInp = Input.input Nothing
-
-actionFieldSig = let foo x d = case x of
-                                   Nothing        -> Dict.empty
-                                   Just (a, f, c) -> insContent a f c d
-                 in foldp foo Dict.empty (merge actionFieldInp.signal (lift (\_ -> Nothing) reqSig))
-
+getContent : String -> String -> FieldDict -> Field.Content
 getContent a f d =
     let defaultC = Field.Content "" (Field.Selection 0 0 Field.Forward)
     in case Dict.get a d of
@@ -88,11 +95,12 @@ getContent a f d =
                           _      -> defaultC)
            _      -> defaultC
 
+insContent : String -> String -> Field.Content -> FieldDict -> FieldDict
 insContent a f c d = case Dict.get a d of
                           Just dd -> Dict.insert a (Dict.insert f c dd) d
                           _       -> Dict.insert a (Dict.singleton f c) d
 
-renderAction : Dict.Dict String (Dict.Dict String Field.Content) -> Json.Value -> Element
+renderAction : FieldDict -> Json.Value -> Element
 renderAction fs j =
   let content = Field.Content "" (Field.Selection 0 0 Field.Forward)
       foo a f x = Just (a, f, x)
@@ -109,7 +117,7 @@ renderAction fs j =
          Json.Object d -> beside (rend d) (Input.button handle Nothing "boop")
          _             -> plainText "renderAction, nope :("
 
-renderActions : Dict.Dict String (Dict.Dict String Field.Content) -> Json.Value -> Element
+renderActions : FieldDict -> Json.Value -> Element
 renderActions fs j =
     case j of
         Json.Array l -> flow down (map (renderAction fs) l)
