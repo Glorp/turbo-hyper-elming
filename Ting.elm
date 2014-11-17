@@ -89,14 +89,15 @@ renderAction fs j =
       foo f x = Just (f, x)
       rendField f = case f of
                         Json.Object d -> (case Dict.get "name" d of
-                                              Just (Json.String s) -> Field.field Field.defaultStyle actionFieldInp.handle (foo s) "" (getContent s fs)
+                                              Just (Json.String s) -> beside (plainText (concat [s, ": "]))
+                                                                             (Field.field Field.defaultStyle actionFieldInp.handle (foo s) "" (getContent s fs))
                                               _                    -> plainText "rendField-inner, nope :(")
                         _             -> plainText "rendField, nope :("
       rend d = case Dict.get "fields" d of
                    Just (Json.Array l)  -> flow down (map rendField l)
                    _                    -> plainText "rend, nope :("
   in case j of
-         Json.Object d -> rend d
+         Json.Object d -> beside (rend d) (Input.button handle Nothing "boop")
          _             -> plainText "renderAction, nope :("
 
 renderActions r fs =
@@ -107,7 +108,7 @@ renderActions r fs =
                      _                              -> plainText "renderActions, inner, nope :("
     in case r of
            Just resp -> rend resp.respText
-           _         -> plainText "renderAction, nope :("
+           _         -> empty
 
 main : Signal Element
 main = let hed  = lift (flow right) (combine [field, constant b])
