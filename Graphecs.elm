@@ -43,7 +43,7 @@ renderJsonBut l j =
         keyVals d kvs = foldr (consDKV d) [] kvs
         render (k, f, v) = (plainText (concat [k, ": "]), f v)
     in case j of
-           Json.Object d -> renderKV (concat [map render (keyVals d l), renderD (remove d l)])
+           Json.Object d -> bordered Color.darkGray (renderKV (concat [map render (keyVals d l), renderD (remove d l)]))
            _             -> renderJson j
 
 butt : Input.Handle a -> a -> Element -> Element
