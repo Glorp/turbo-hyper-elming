@@ -108,19 +108,22 @@ renderAction name fs d =
                                               _                    -> (plainText "???", Gfx.renderJson f))
                         _             -> (plainText "weird json :|", Gfx.renderJson f)
   in case Dict.get "fields" d of
-         Just (Json.Array l)  -> beside (Gfx.bordered Color.darkGray (above (plainText name)
-                                                                            (Gfx.renderKV (map rendField l))))
+         Just (Json.Array l)  -> beside (Gfx.bordered Color.darkGray
+                                                      (above (plainText name)
+                                                             (Gfx.renderKV (concat [map rendField l,
+                                                                                    Gfx.renderD (Dict.remove "fields" d)]))))
                                         (Input.button handle Nothing "boop")
          _                    -> Gfx.renderJson (Json.Object d)
 
 renderActions : ActionFieldDict -> Json.Value -> Element
 renderActions afs j =
-    let rend a = case a of
-                     Json.Object d -> (case Dict.get "name" d of
-                                           Just (Json.String s) -> renderAction s
-                                                                                (Dict.getOrElse Dict.empty s afs)
-                                                                                (Dict.remove "name" d)
-                                           _                    -> Gfx.renderJson a)
+    let rendD d = case Dict.get "name" d of
+                      Just (Json.String s) -> renderAction s
+                                                           (Dict.getOrElse Dict.empty s afs)
+                                                           (Dict.remove "name" d)
+                      _                    -> Gfx.renderJson (Json.Object d)
+        rend a = case a of
+                     Json.Object d -> rendD d
                      _             -> Gfx.renderJson a
     in case j of
         Json.Array l -> flow down (map rend l)
