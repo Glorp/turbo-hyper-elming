@@ -13,17 +13,18 @@
   var ting = Elm.fullscreen(Elm.Ting, {inn: null});
 
     function thingety(req) {
-        ting.ports.inn.send(null);
+        ting.ports.inn.send([req, null]);
         if (!req) return;
 
         var xhr = new XMLHttpRequest();
         xhr.open(req.verb, req.url, true);
         xhr.setRequestHeader("accept", "application/vnd.siren+json");
         xhr.onload = function(){
-            ting.ports.inn.send({respText: xhr.responseText,
-                                 status: xhr.status,
-                                 statusText: xhr.statusText,
-                                 headers : xhr.getAllResponseHeaders()});
+            ting.ports.inn.send([req,
+                                 {body: xhr.responseText,
+                                  status: xhr.status,
+                                  statusText: xhr.statusText,
+                                  headers : xhr.getAllResponseHeaders()}]);
         }
         xhr.send();
     }

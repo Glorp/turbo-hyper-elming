@@ -5,6 +5,8 @@ import Json
 import Dict
 import Color
 
+type JsonDict = Dict.Dict String Json.Value
+
 spacec : Color.Color -> Element -> Element
 spacec c e = color c (container (4 + widthOf e) (4 + heightOf e) middle e)
 
@@ -25,7 +27,7 @@ renderJson x = case x of
                                          [] -> empty
                                          l  -> bordered Color.darkGrey (renderKV l)
 
-renderD : Dict.Dict String Json.Value -> [(Element, Element)]
+renderD : JsonDict -> [(Element, Element)]
 renderD d = let render (k, v) = (plainText (concat [k, ": "]), renderJson v)
             in map render (Dict.toList d)
 

@@ -9,12 +9,15 @@ import Dict
 import Color
 import Window
 
-type Request = {url : String, verb : String, headers : [String]}
-type Response = {respText : String, status : Int, statusText : String, headers : Maybe String}
-type FieldDict = Dict.Dict String (Dict.Dict String Field.Content)
+type Request = {url : String, verb : String, headers : [String], body: String}
+type Response = {body : String, status : Int, statusText : String, headers : Maybe String}
+type ReqResp = (Request, Maybe Response)
+type FieldDict = Dict.Dict String Field.Content
+type ActionFieldDict = Dict.Dict String FieldDict
+type JsonDict = Dict.Dict String Json.Value
 
 getReq : String -> Request
-getReq s = {url = s, verb = "GET", headers = []}
+getReq s = {url = s, verb = "GET", headers = [], body = ""}
 
 binput = Input.input ()
 
@@ -33,7 +36,7 @@ things = let addr = "meh.txt"
 
 actionFieldInp = Input.input Nothing
 
-actionFieldSig : Signal FieldDict
+actionFieldSig : Signal ActionFieldDict
 actionFieldSig = let foo x d = case x of
                                    Nothing        -> Dict.empty
                                    Just (a, f, c) -> insContent a f c d
@@ -43,9 +46,9 @@ actionFieldSig = let foo x d = case x of
 port out : Signal (Maybe Request)
 port out = reqSig
 
-port inn : Signal (Maybe Response)
+port inn : Signal (Maybe ReqResp)
 
-strToGUI : String -> FieldDict -> Element
+strToGUI : String -> ActionFieldDict -> Element
 strToGUI s fs =
     let renderl = [("properties", Gfx.renderJsonBut [("name", Gfx.renderJson),
                                                      ("description", Gfx.renderJson)]),
@@ -55,15 +58,16 @@ strToGUI s fs =
            Just x -> Gfx.renderJsonBut renderl x
            _      -> plainText (concat ["not soap? :() ", s])
 
-respToGUI : Maybe Response -> FieldDict -> Element
+respToGUI : Maybe ReqResp -> ActionFieldDict -> Element
 respToGUI x fs =
     case x of
-        Nothing -> plainText "..."
-        Just r  -> flow down [(plainText (concat ["Status: " , show (r.status), ", ", r.statusText])),
-                                         (case r.headers of
-                                              Nothing -> empty
-                                              Just h  -> plainText h),
-                                         strToGUI r.respText fs]
+        Nothing           -> empty
+        Just (_, Nothing) -> plainText "..."
+        Just (_, Just r)  -> flow down [(plainText (concat ["Status: " , show (r.status), ", ", r.statusText])),
+                                        (case r.headers of
+                                             Nothing -> empty
+                                             Just h  -> plainText h),
+                                        strToGUI r.body fs]
 
 renderLink : Json.Value -> Element
 renderLink j =
@@ -86,42 +90,41 @@ renderLinks j = case j of
                     Json.Array l -> flow down (map renderLink l)
                     _            -> Gfx.renderJson j
 
-getContent : String -> String -> FieldDict -> Field.Content
-getContent a f d =
-    let defaultC = Field.Content "" (Field.Selection 0 0 Field.Forward)
-    in case Dict.get a d of
-           Just x -> (case Dict.get f x of
-                          Just c -> c
-                          _      -> defaultC)
-           _      -> defaultC
 
-insContent : String -> String -> Field.Content -> FieldDict -> FieldDict
+
+insContent : String -> String -> Field.Content -> ActionFieldDict -> ActionFieldDict
 insContent a f c d = case Dict.get a d of
                           Just dd -> Dict.insert a (Dict.insert f c dd) d
                           _       -> Dict.insert a (Dict.singleton f c) d
 
-renderAction : FieldDict -> Json.Value -> Element
-renderAction fs j =
-  let content = Field.Content "" (Field.Selection 0 0 Field.Forward)
-      foo a f x = Just (a, f, x)
-      rendField name f = case f of
-                             Json.Object d -> (case Dict.get "name" d of
-                                                   Just (Json.String s) -> (plainText (concat [s, ": "]),
-                                                                            Field.field Field.defaultStyle actionFieldInp.handle (foo name s) "" (getContent name s fs))
-                                                   _                    -> (plainText "rendField-inner, nope :(", empty))
-                             _                  -> (plainText "rendField, nope :(", empty)
-      rend d = case (Dict.get "name" d, Dict.get "fields" d) of
-                   (Just (Json.String s), Just (Json.Array l))  -> Gfx.bordered Color.darkGray (above (plainText s) (Gfx.renderKV (map (rendField s) l)))
-                   _                                            -> plainText "rend, nope :("
-  in case j of
-         Json.Object d -> beside (rend d) (Input.button handle Nothing "boop")
-         _             -> plainText "renderAction, nope :("
+renderAction : String -> FieldDict -> JsonDict -> Element
+renderAction name fs d =
+  let foo a f x = Just (a, f, x)
+      field s = Field.field Field.defaultStyle actionFieldInp.handle (foo name s) "" (Dict.getOrElse content s fs)
+      content = Field.Content "" (Field.Selection 0 0 Field.Forward)
+      rendField f = case f of
+                        Json.Object d -> (case Dict.get "name" d of
+                                              Just (Json.String s) -> (plainText (concat [s, ": "]), field s)
+                                              _                    -> (plainText "???", Gfx.renderJson f))
+                        _             -> (plainText "weird json :|", Gfx.renderJson f)
+  in case Dict.get "fields" d of
+         Just (Json.Array l)  -> beside (Gfx.bordered Color.darkGray (above (plainText name)
+                                                                            (Gfx.renderKV (map rendField l))))
+                                        (Input.button handle Nothing "boop")
+         _                    -> Gfx.renderJson (Json.Object d)
 
-renderActions : FieldDict -> Json.Value -> Element
-renderActions fs j =
-    case j of
-        Json.Array l -> flow down (map (renderAction fs) l)
-        _            -> plainText "renderActions, nope :("
+renderActions : ActionFieldDict -> Json.Value -> Element
+renderActions afs j =
+    let rend a = case a of
+                     Json.Object d -> (case Dict.get "name" d of
+                                           Just (Json.String s) -> renderAction s
+                                                                                (Dict.getOrElse Dict.empty s afs)
+                                                                                (Dict.remove "name" d)
+                                           _                    -> Gfx.renderJson a)
+                     _             -> Gfx.renderJson a
+    in case j of
+        Json.Array l -> flow down (map rend l)
+        _            -> Gfx.renderJson j
 
 main : Signal Element
 main = let hed  = lift (flow right) (combine [field, constant b])
