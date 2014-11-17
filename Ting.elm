@@ -47,10 +47,10 @@ respToGUI x =
     case x of
         Nothing -> plainText "..."
         Just r  -> flow down [(plainText (concat ["Status: " , show (r.status), ", ", r.statusText])),
-                                       (case r.headers of
-                                            Nothing -> empty
-                                            Just h  -> plainText h),
-                                       strToGUI r.respText]
+                                         (case r.headers of
+                                              Nothing -> empty
+                                              Just h  -> plainText h),
+                                         strToGUI r.respText]
 
 renderLink : Json.Value -> Element
 renderLink j =
@@ -73,9 +73,46 @@ renderLinks j = case j of
                     Json.Array l -> flow down (map renderLink l)
                     _            -> Gfx.renderJson j
 
+actionFieldInp = Input.input Nothing
+
+actionFieldSig = let foo x d = case x of
+                                   Nothing        -> Dict.empty
+                                   Just (f, c) -> Dict.insert f c d
+                 in foldp foo Dict.empty (merge actionFieldInp.signal (lift (\_ -> Nothing) reqSig))
+
+getContent k d = case Dict.get k d of
+                          Just x -> x
+                          _      -> Field.Content "" (Field.Selection 0 0 Field.Forward)
+
+renderAction fs j =
+  let content = Field.Content "" (Field.Selection 0 0 Field.Forward)
+      foo f x = Just (f, x)
+      rendField f = case f of
+                        Json.Object d -> (case Dict.get "name" d of
+                                              Just (Json.String s) -> Field.field Field.defaultStyle actionFieldInp.handle (foo s) "" (getContent s fs)
+                                              _                    -> plainText "rendField-inner, nope :(")
+                        _             -> plainText "rendField, nope :("
+      rend d = case Dict.get "fields" d of
+                   Just (Json.Array l)  -> flow down (map rendField l)
+                   _                    -> plainText "rend, nope :("
+  in case j of
+         Json.Object d -> rend d
+         _             -> plainText "renderAction, nope :("
+
+renderActions r fs =
+    let rend s = case Json.fromString s of
+                     Just (Json.Object d) -> (case Dict.get "actions" d of
+                                                  Just (Json.Array l) -> flow down (map (renderAction fs) l)
+                                                  _                   -> plainText "renderActions, inner, inner, nope :(")
+                     _                              -> plainText "renderActions, inner, nope :("
+    in case r of
+           Just resp -> rend resp.respText
+           _         -> plainText "renderAction, nope :("
 
 main : Signal Element
 main = let hed  = lift (flow right) (combine [field, constant b])
            stuf = lift (flow right) (combine [lift respToGUI inn])
+           acts = lift2 renderActions inn actionFieldSig
        in lift (flow down) (combine [lift2 Gfx.centered Window.width hed,
-                                     lift2 Gfx.centered Window.width stuf])
+                                     lift2 Gfx.centered Window.width stuf,
+                                     lift2 Gfx.centered Window.width acts])
