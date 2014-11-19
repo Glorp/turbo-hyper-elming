@@ -9,8 +9,9 @@ import Dict
 import Color
 import Window
 
-type Request = {url : String, verb : String, headers : [String], body: String}
-type Response = {body : String, status : Int, statusText : String, headers : Maybe String}
+type Header = (String, String)
+type Request = {url : String, verb : String, headers : [Header], body: String}
+type Response = {body : String, status : Int, statusText : String, headers : [Header]}
 type ReqResp = (Request, Maybe Response)
 type FieldDict = Dict.Dict String Field.Content
 type ActionFieldDict = Dict.Dict String FieldDict
@@ -69,10 +70,18 @@ respToGUI x fs =
         Nothing           -> empty
         Just (_, Nothing) -> plainText "..."
         Just (_, Just r)  -> flow down [(plainText (concat ["Status: " , show (r.status), ", ", r.statusText])),
-                                        (case r.headers of
-                                             Nothing -> empty
-                                             Just h  -> plainText h),
+                                        renderHeaders r.headers,
                                         strToGUI r.body fs]
+
+link : String -> String -> Element 
+link href text = Gfx.butt handle (Just (getReq href)) (plainText text)
+
+renderHeaders : [Header] -> Element
+renderHeaders hs =
+    let foo (k, v) = case k of
+                         "Location" -> (plainText "Location: ", link v v)
+                         _          -> (plainText (concat [k, ": "]), plainText v)
+    in Gfx.renderKV (map foo hs)
 
 renderLink : Json.Value -> Element
 renderLink j =
@@ -118,7 +127,10 @@ renderAction name href method fs d =
                                                              (Gfx.renderKV (concat [map rendField l,
                                                                                     Gfx.renderD (Dict.remove "fields" d)]))))
                                         (Input.button handle (Just {url = href, verb = method, headers = [], body = bodyFrom fs}) "boop")
-         _                    -> Gfx.renderJson (Json.Object d)
+         _                    -> beside (Gfx.bordered Color.darkGray
+                                                      (above (plainText name)
+                                                             (Gfx.renderKV (Gfx.renderD d))))
+                                        (Input.button handle (Just {url = href, verb = method, headers = [], body = bodyFrom fs}) "boop")
 
 
 
