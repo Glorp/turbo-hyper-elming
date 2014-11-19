@@ -17,7 +17,12 @@ type ActionFieldDict = Dict.Dict String FieldDict
 type JsonDict = Dict.Dict String Json.Value
 
 getReq : String -> Request
-getReq s = {url = s, verb = "GET", headers = [], body = ""}
+getReq s = {url = s, verb = "GET", headers = [], body = "kapekatt"}
+
+bodyFrom : FieldDict -> String
+bodyFrom d =
+    let foo l = map (\(k, c) -> concat[k, "=", c.string]) l
+    in join "&" (foo (Dict.toList d))
 
 binput = Input.input ()
 
@@ -97,8 +102,8 @@ insContent a f c d = case Dict.get a d of
                           Just dd -> Dict.insert a (Dict.insert f c dd) d
                           _       -> Dict.insert a (Dict.singleton f c) d
 
-renderAction : String -> FieldDict -> JsonDict -> Element
-renderAction name fs d =
+renderAction : String -> String -> String -> FieldDict -> JsonDict -> Element
+renderAction name href method fs d =
   let foo a f x = Just (a, f, x)
       field s = Field.field Field.defaultStyle actionFieldInp.handle (foo name s) "" (Dict.getOrElse content s fs)
       content = Field.Content "" (Field.Selection 0 0 Field.Forward)
@@ -112,16 +117,20 @@ renderAction name fs d =
                                                       (above (plainText name)
                                                              (Gfx.renderKV (concat [map rendField l,
                                                                                     Gfx.renderD (Dict.remove "fields" d)]))))
-                                        (Input.button handle Nothing "boop")
+                                        (Input.button handle (Just {url = href, verb = method, headers = [], body = bodyFrom fs}) "boop")
          _                    -> Gfx.renderJson (Json.Object d)
+
+
 
 renderActions : ActionFieldDict -> Json.Value -> Element
 renderActions afs j =
-    let rendD d = case Dict.get "name" d of
-                      Just (Json.String s) -> renderAction s
-                                                           (Dict.getOrElse Dict.empty s afs)
-                                                           (Dict.remove "name" d)
-                      _                    -> Gfx.renderJson (Json.Object d)
+    let rendD d = case (Dict.get "name" d, Dict.get "href" d, Dict.get "method" d) of
+                      (Just (Json.String n), Just (Json.String h), Just (Json.String m)) -> renderAction n
+                                                                                                         h
+                                                                                                         m
+                                                                                                         (Dict.getOrElse Dict.empty n afs)
+                                                                                                         (Dict.remove "name" d)
+                      _                                                                  -> Gfx.renderJson (Json.Object d)
         rend a = case a of
                      Json.Object d -> rendD d
                      _             -> Gfx.renderJson a
