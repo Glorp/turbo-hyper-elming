@@ -44,7 +44,8 @@
         }
         xhr.onload = function(){
             ting.ports.inn.send([req,
-                                 {body: xhr.responseText,
+                                 {url: xhr.responseURL,
+                                  body: xhr.responseText,
                                   status: xhr.status,
                                   statusText: xhr.statusText,
                                   headers : parseResponseHeaders(xhr.getAllResponseHeaders())}]);

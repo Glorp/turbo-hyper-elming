@@ -11,7 +11,7 @@ import Window
 
 type Header = (String, String)
 type Request = {url : String, verb : String, headers : [Header], body: String}
-type Response = {body : String, status : Int, statusText : String, headers : [Header]}
+type Response = {url : String, body : String, status : Int, statusText : String, headers : [Header]}
 type ReqResp = (Request, Maybe Response)
 type FieldDict = Dict.Dict String Field.Content
 type ActionFieldDict = Dict.Dict String FieldDict
@@ -77,10 +77,10 @@ respToGUI : Maybe ReqResp -> ActionFieldDict -> Element
 respToGUI x fs =
     case x of
         Nothing           -> empty
-        Just (rq, Nothing) -> plainText "..."
-        Just (rq, Just r)  -> flow down [(plainText (concat ["Status: " , show (r.status), ", ", r.statusText])),
-                                        renderHeaders rq.url r.headers,
-                                        strToGUI r.body rq.url fs]
+        Just (_, Nothing) -> plainText "..."
+        Just (_, Just r)  -> flow down [(plainText (concat ["Status: " , show (r.status), ", ", r.statusText])),
+                                        renderHeaders r.url r.headers,
+                                        strToGUI r.body r.url fs]
 
 renderHeaders : String -> [Header] -> Element
 renderHeaders ref hs =
