@@ -18,7 +18,7 @@ type ActionFieldDict = Dict.Dict String FieldDict
 type JsonDict = Dict.Dict String Json.Value
 
 getReq : String -> Request
-getReq s = {url = s, verb = "GET", headers = [], body = "kapekatt"}
+getReq s = {url = s, verb = "GET", headers = [("accept", "application/vnd.siren+json")], body = "kapekatt"}
 
 bodyFrom : FieldDict -> String
 bodyFrom d =
