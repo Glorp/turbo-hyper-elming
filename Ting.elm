@@ -43,7 +43,7 @@ binput = Input.input ()
 b = Input.button binput.handle () "beep"
 
 things : (Signal Element, Input.Handle (Maybe Request), Signal (Maybe Request))
-things = let addr = "meh.txt"
+things = let addr = "http://hyperwizard.azurewebsites.net/hywit/void"
              inp = Input.input Nothing
              (field, content) = Gfx.makeField "Thing" addr
              fieldSig = sampleOn binput.signal content
