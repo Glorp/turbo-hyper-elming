@@ -155,8 +155,9 @@ renderAction name href method1 ref (Act method2 fs) d =
                       Nothing -> above (Input.dropDown actionFieldInp.handle (methods name)) button
 
     in beside (Gfx.renderJsonBut [("title", Gfx.renderJson),
-                                  ("href", Gfx.renderJson),
                                   ("name", Gfx.renderJson),
+                                  ("href", Gfx.renderJson),
+                                  ("method", Gfx.renderJson),
                                   ("fields", rendFields)]
                                  (Json.Object d))
               rendAct
@@ -175,7 +176,7 @@ renderActions afs ref j =
                                                                                    (method d)
                                                                                    ref
                                                                                    (Dict.getOrElse noAct n afs)
-                                                                                   (Dict.remove "name" d)
+                                                                                   d
                       _                                            -> Gfx.renderJson (Json.Object d)
         rend a = case a of
                      Json.Object d -> rendD d
