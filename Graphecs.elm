@@ -18,9 +18,8 @@ bordered c e = spacec c (spacey e)
 
 renderJson : Json.Value -> Element
 renderJson x = case x of
-                   Json.String s  -> let e1 = plainText s
-                                         e2 = width 500 e1
-                                     in if (widthOf e1 < widthOf e2) then e1 else e2
+                   Json.String s  -> let e = plainText s
+                                     in if widthOf e > 500 then width 500 e else e
                    Json.Number n  -> plainText (show n)
                    Json.Boolean b -> plainText (show b)
                    Json.Null      -> plainText "null"
