@@ -8,7 +8,7 @@ import Json
 import Dict
 import Color
 import Window
-
+import Text
 
 type Header = (String, String)
 type Request = {url : String, verb : String, headers : [Header], body: String}
@@ -96,10 +96,18 @@ respToGUI x fs =
         Just (_, Just r)  -> flow down [(plainText (concat ["Status: " , show (r.status), ", ", r.statusText])),
                                         renderHeaders r.url r.headers,
                                         strToGUI r.body r.url fs]
+liink href ref s =
+    let t = Text.toText s
+    in Input.customButton handle
+                          (Just (getReq (Just ref) href))
+                          (Text.leftAligned (Text.color Color.lightBlue t))
+                          (Text.leftAligned  (Text.color Color.blue t))
+                          (Text.leftAligned  (Text.color Color.darkBlue t))
+
 
 renderHeaders : String -> [Header] -> Element
 renderHeaders ref hs =
-    let link href text = Gfx.butt handle (Just (getReq (Just ref) href)) (plainText text)
+    let link href text = liink href ref text
         foo (k, v) = case k of
                          "Location" -> (plainText "Location: ", link v v)
                          _          -> (plainText (concat [k, ": "]), plainText v)
@@ -110,6 +118,7 @@ renderLink ref j =
     let link s e d = beside (Gfx.renderJson (Json.Object d))
                             (Gfx.butt handle (Just (getReq (Just ref) s)) e)
         rend d = case (Dict.get "href" d, Dict.get "rel" d) of
+                     (Just (Json.String h), Just (Json.Array [Json.String s])) -> liink h ref s
                      (Just (Json.String h), Just r)               -> link h
                                                                           (Gfx.renderJson r)
                                                                           (Dict.remove "rel" (Dict.remove "href" d))
