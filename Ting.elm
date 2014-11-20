@@ -143,7 +143,7 @@ renderAction name href method1 ref (Act method2 fs) d =
                                                 _                    -> (plainText "???", Gfx.renderJson f))
                           _             -> (plainText "weird json :|", Gfx.renderJson f)
         rendFields fs = case fs of
-                              Json.Array l -> Gfx.renderKV (map rendField l)
+                              Json.Array l -> Gfx.bordered Color.lightGrey (Gfx.renderKV (map rendField l))
                               _            -> Gfx.renderJson fs
         method = case (method1, method2) of
                      (Just m, _) -> m
