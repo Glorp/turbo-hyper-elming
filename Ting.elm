@@ -110,13 +110,13 @@ renderLink ref j =
     let link s e d = beside (Gfx.renderJson (Json.Object d))
                             (Gfx.butt handle (Just (getReq (Just ref) s)) e)
         rend d = case (Dict.get "href" d, Dict.get "rel" d) of
-                     (Just (Json.String h), Just r)  -> link h
-                                                             (Gfx.renderJson r)
-                                                             (Dict.remove "rel" (Dict.remove "href" d))
-                     (Just (Json.String h), Nothing) -> link h
-                                                             (plainText h)
-                                                             (Dict.remove "href" d)
-                     _                               -> Gfx.renderJson j
+                     (Just (Json.String h), Just r)               -> link h
+                                                                          (Gfx.renderJson r)
+                                                                          (Dict.remove "rel" (Dict.remove "href" d))
+                     (Just (Json.String h), Nothing)              -> link h
+                                                                          (plainText h)
+                                                                          (Dict.remove "href" d)
+                     _                                            -> Gfx.renderJson j
     in case j of
        Json.Object d -> rend d
        _             -> Gfx.renderJson j
@@ -142,6 +142,9 @@ renderAction name href method1 ref (Act method2 fs) d =
                                                 Just (Json.String s) -> (plainText (concat [s, ": "]), field s)
                                                 _                    -> (plainText "???", Gfx.renderJson f))
                           _             -> (plainText "weird json :|", Gfx.renderJson f)
+        rendFields fs = case fs of
+                              Json.Array l -> Gfx.renderKV (map rendField l)
+                              _            -> Gfx.renderJson fs
         method = case (method1, method2) of
                      (Just m, _) -> m
                      (_, Just m) -> m
@@ -150,35 +153,30 @@ renderAction name href method1 ref (Act method2 fs) d =
         rendAct = case method1 of
                       Just _  -> button
                       Nothing -> above (Input.dropDown actionFieldInp.handle (methods name)) button
-    in case Dict.get "fields" d of
-           Just (Json.Array l)  -> beside (Gfx.bordered Color.darkGray
-                                                        (above (plainText name)
-                                                               (Gfx.renderKV (concat [map rendField l,
-                                                                                      Gfx.renderD (Dict.remove "fields" d)]))))
-                                          rendAct
-           _                    -> beside (Gfx.bordered Color.darkGray
-                                                        (above (plainText name)
-                                                               (Gfx.renderKV (Gfx.renderD d))))
-                                          rendAct
+
+    in beside (Gfx.renderJsonBut [("title", Gfx.renderJson),
+                                  ("href", Gfx.renderJson),
+                                  ("name", Gfx.renderJson),
+                                  ("fields", rendFields)]
+                                 (Json.Object d))
+              rendAct
 
 
 
 renderActions : ActionDict -> String -> Json.Value -> Element
 renderActions afs ref j =
-    let rendD d = case (Dict.get "name" d, Dict.get "href" d, Dict.get "method" d) of
-                      (Just (Json.String n), Just (Json.String h), Just (Json.String m)) -> renderAction n
-                                                                                                         h
-                                                                                                         (Just m)
-                                                                                                         ref
-                                                                                                         (Dict.getOrElse (Act Nothing Dict.empty) n afs)
-                                                                                                         (Dict.remove "name" d)
-                      (Just (Json.String n), Just (Json.String h), _)                    -> renderAction n
-                                                                                                         h
-                                                                                                         Nothing
-                                                                                                         ref
-                                                                                                         (Dict.getOrElse (Act Nothing Dict.empty) n afs)
-                                                                                                         (Dict.remove "name" d)
-                      _                                                                  -> Gfx.renderJson (Json.Object d)
+    let noAct = Act Nothing Dict.empty
+        method d = case Dict.get "method" d of
+                       Just (Json.String m) -> Just m
+                       _                    -> Nothing
+        rendD d = case (Dict.get "name" d, Dict.get "href" d) of
+                      (Just (Json.String n), Just (Json.String h)) -> renderAction n
+                                                                                   h
+                                                                                   (method d)
+                                                                                   ref
+                                                                                   (Dict.getOrElse noAct n afs)
+                                                                                   (Dict.remove "name" d)
+                      _                                            -> Gfx.renderJson (Json.Object d)
         rend a = case a of
                      Json.Object d -> rendD d
                      _             -> Gfx.renderJson a

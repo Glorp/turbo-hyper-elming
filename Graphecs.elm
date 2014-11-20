@@ -18,11 +18,13 @@ bordered c e = spacec c (spacey e)
 
 renderJson : Json.Value -> Element
 renderJson x = case x of
-                   Json.String s  -> width 500 (plainText s)
+                   Json.String s  -> let e1 = plainText s
+                                         e2 = width 500 e1
+                                     in if (widthOf e1 < widthOf e2) then e1 else e2
                    Json.Number n  -> plainText (show n)
                    Json.Boolean b -> plainText (show b)
                    Json.Null      -> plainText "null"
-                   Json.Array l   -> flow right (join [plainText ", "] [map renderJson l])
+                   Json.Array l   -> flow down (map renderJson l)
                    Json.Object d  -> case renderD d of
                                          [] -> empty
                                          l  -> bordered Color.darkGrey (renderKV l)
