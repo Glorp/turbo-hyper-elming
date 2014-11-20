@@ -18,7 +18,7 @@ bordered c e = spacec c (spacey e)
 
 renderJson : Json.Value -> Element
 renderJson x = case x of
-                   Json.String s  -> plainText s
+                   Json.String s  -> width 500 (plainText s)
                    Json.Number n  -> plainText (show n)
                    Json.Boolean b -> plainText (show b)
                    Json.Null      -> plainText "null"

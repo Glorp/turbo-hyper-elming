@@ -9,12 +9,16 @@ import Dict
 import Color
 import Window
 
+
 type Header = (String, String)
 type Request = {url : String, verb : String, headers : [Header], body: String}
 type Response = {url : String, body : String, status : Int, statusText : String, headers : [Header]}
 type ReqResp = (Request, Maybe Response)
+
+data ActionUpdate = UField String String Field.Content | UMethod String String | Reset
+data Action = Act (Maybe String) FieldDict
 type FieldDict = Dict.Dict String Field.Content
-type ActionFieldDict = Dict.Dict String FieldDict
+type ActionDict = Dict.Dict String Action
 type JsonDict = Dict.Dict String Json.Value
 
 getReq : Maybe String -> String -> Request
@@ -49,13 +53,24 @@ things = let addr = "meh.txt"
 
 (field, handle, reqSig) = things
 
-actionFieldInp = Input.input Nothing
+actionFieldInp = Input.input Reset
 
-actionFieldSig : Signal ActionFieldDict
+insField : String -> String -> Field.Content -> ActionDict -> ActionDict
+insField a f c d = case Dict.get a d of
+                       Just (Act m dd) -> Dict.insert a (Act m (Dict.insert f c dd)) d
+                       _               -> Dict.insert a (Act Nothing (Dict.singleton f c)) d
+
+insMethod : String -> String -> ActionDict -> ActionDict
+insMethod a m d = case Dict.get a d of
+                      Just (Act _ dd) -> Dict.insert a (Act (Just m) dd) d
+                      _               -> Dict.insert a (Act (Just m) Dict.empty) d
+
+actionFieldSig : Signal ActionDict
 actionFieldSig = let foo x d = case x of
-                                   Nothing        -> Dict.empty
-                                   Just (a, f, c) -> insContent a f c d
-                 in foldp foo Dict.empty (merge actionFieldInp.signal (lift (\_ -> Nothing) reqSig))
+                                   Reset         -> Dict.empty
+                                   UField a f c  -> insField a f c d
+                                   UMethod a m   -> insMethod a m d
+                 in foldp foo Dict.empty (merge actionFieldInp.signal (lift (\_ -> Reset) reqSig))
 
 
 port out : Signal (Maybe Request)
@@ -63,7 +78,7 @@ port out = reqSig
 
 port inn : Signal (Maybe ReqResp)
 
-strToGUI : String -> String -> ActionFieldDict -> Element
+strToGUI : String -> String -> ActionDict -> Element
 strToGUI s ref fs =
     let renderl = [("properties", Gfx.renderJsonBut [("name", Gfx.renderJson),
                                                      ("description", Gfx.renderJson)]),
@@ -73,7 +88,7 @@ strToGUI s ref fs =
            Just x -> Gfx.renderJsonBut renderl x
            _      -> plainText (concat ["not soap? :() ", s])
 
-respToGUI : Maybe ReqResp -> ActionFieldDict -> Element
+respToGUI : Maybe ReqResp -> ActionDict -> Element
 respToGUI x fs =
     case x of
         Nothing           -> empty
@@ -111,44 +126,57 @@ renderLinks ref j = case j of
                         Json.Array l -> flow down (map (renderLink ref) l)
                         _            -> Gfx.renderJson j
 
+methods : String -> [(String, ActionUpdate)]
+methods a = [("GET", UMethod a "GET"),
+             ("PUT", UMethod a "PUT"),
+             ("POST", UMethod a "POST"),
+             ("DELETE", UMethod a "DELETE"),
+             ("PATCH", UMethod a "PATCH")]
 
-
-insContent : String -> String -> Field.Content -> ActionFieldDict -> ActionFieldDict
-insContent a f c d = case Dict.get a d of
-                          Just dd -> Dict.insert a (Dict.insert f c dd) d
-                          _       -> Dict.insert a (Dict.singleton f c) d
-
-renderAction : String -> String -> String -> String -> FieldDict -> JsonDict -> Element
-renderAction name href method ref fs d =
-    let foo a f x = Just (a, f, x)
-        field s = Field.field Field.defaultStyle actionFieldInp.handle (foo name s) "" (Dict.getOrElse content s fs)
+renderAction : String -> String -> Maybe String -> String -> Action -> JsonDict -> Element
+renderAction name href method1 ref (Act method2 fs) d =
+    let field s = Field.field Field.defaultStyle actionFieldInp.handle (UField name s) "" (Dict.getOrElse content s fs)
         content = Field.Content "" (Field.Selection 0 0 Field.Forward)
         rendField f = case f of
                           Json.Object d -> (case Dict.get "name" d of
                                                 Just (Json.String s) -> (plainText (concat [s, ": "]), field s)
                                                 _                    -> (plainText "???", Gfx.renderJson f))
                           _             -> (plainText "weird json :|", Gfx.renderJson f)
+        method = case (method1, method2) of
+                     (Just m, _) -> m
+                     (_, Just m) -> m
+                     (_, _)      -> "GET"
+        button = Input.button handle (Just (req (Just ref) href method (bodyFrom fs))) "boop"
+        rendAct = case method1 of
+                      Just _  -> button
+                      Nothing -> above (Input.dropDown actionFieldInp.handle (methods name)) button
     in case Dict.get "fields" d of
            Just (Json.Array l)  -> beside (Gfx.bordered Color.darkGray
                                                         (above (plainText name)
                                                                (Gfx.renderKV (concat [map rendField l,
                                                                                       Gfx.renderD (Dict.remove "fields" d)]))))
-                                          (Input.button handle (Just (req (Just ref) href method (bodyFrom fs))) "boop")
+                                          rendAct
            _                    -> beside (Gfx.bordered Color.darkGray
                                                         (above (plainText name)
                                                                (Gfx.renderKV (Gfx.renderD d))))
-                                          (Input.button handle (Just (req (Just ref) href method (bodyFrom fs))) "boop")
+                                          rendAct
 
 
 
-renderActions : ActionFieldDict -> String -> Json.Value -> Element
+renderActions : ActionDict -> String -> Json.Value -> Element
 renderActions afs ref j =
     let rendD d = case (Dict.get "name" d, Dict.get "href" d, Dict.get "method" d) of
                       (Just (Json.String n), Just (Json.String h), Just (Json.String m)) -> renderAction n
                                                                                                          h
-                                                                                                         m
+                                                                                                         (Just m)
                                                                                                          ref
-                                                                                                         (Dict.getOrElse Dict.empty n afs)
+                                                                                                         (Dict.getOrElse (Act Nothing Dict.empty) n afs)
+                                                                                                         (Dict.remove "name" d)
+                      (Just (Json.String n), Just (Json.String h), _)                    -> renderAction n
+                                                                                                         h
+                                                                                                         Nothing
+                                                                                                         ref
+                                                                                                         (Dict.getOrElse (Act Nothing Dict.empty) n afs)
                                                                                                          (Dict.remove "name" d)
                       _                                                                  -> Gfx.renderJson (Json.Object d)
         rend a = case a of
