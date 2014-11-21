@@ -96,46 +96,50 @@ respToGUI x fs =
         Just (_, Just r)  -> flow down [(plainText (concat ["Status: " , show (r.status), ", ", r.statusText])),
                                         renderHeaders r.url r.headers,
                                         strToGUI r.body r.url fs]
-liink href ref s =
-    let t = Text.toText s
+liink ref href =
+    let t = Text.toText href
     in Input.customButton handle
                           (Just (getReq (Just ref) href))
                           (Text.leftAligned (Text.color Color.lightBlue t))
                           (Text.leftAligned  (Text.color Color.blue t))
                           (Text.leftAligned  (Text.color Color.darkBlue t))
 
+liiink ref j = case j of
+                   Json.String href -> liink ref href
+
 
 renderHeaders : String -> [Header] -> Element
 renderHeaders ref hs =
-    let link href text = liink href ref text
-        foo (k, v) = case k of
-                         "Location" -> (plainText "Location: ", link v v)
+    let foo (k, v) = case k of
+                         "Location" -> (plainText "Location: ", liink ref v)
                          _          -> (plainText (concat [k, ": "]), plainText v)
     in Gfx.renderKV (map foo hs)
 
-renderLink : String -> Json.Value -> Element
-renderLink ref j =
-    let link h j = Gfx.butt handle (Just (getReq (Just ref) h)) (Gfx.renderJson j)
-        relToString l = foldl (\j r -> case (j, r) of
-                                        (Json.String s, Just rs) -> Just (concat [rs, " ", s])
-                                        _                        -> Nothing)
-                              (Just "")
-                              l
-        relink h l = case relToString l of
-                         Just s  -> liink h ref s
-                         Nothing -> link h j
-        rend d = case (Dict.get "href" d, Dict.get "title" d, Dict.get "rel" d) of
-                     (Just (Json.String h), Just (Json.String t), _) -> liink h ref t
-                     (Just (Json.String h), _, Just (Json.Array l))  -> relink h l
-                     (Just (Json.String h), _, _)                    -> link h j
-                     _                                               -> Gfx.renderJson j
+renderRel j =
+    let foo j r = case (j, r) of
+                      (Json.String s, Just rs) -> Just (concat [rs, " ", s])
+                      _                        -> Nothing
+        rend l = case foldl foo (Just "") l of
+                     Just s -> plainText s
+                     _      -> Gfx.renderJson j
     in case j of
-       Json.Object d -> rend d
-       _             -> Gfx.renderJson j
+           Json.Array l -> rend l
+           _            -> Gfx.renderJson j
+
+
+renderLink : String -> Json.Value -> Json.Value -> Element
+renderLink ref j = case j of
+                       Json.Object d -> (case Dict.get "type" d of
+                                             _ -> liiink ref)
+                       _             -> liiink ref
 
 renderLinks : String -> Json.Value -> Element
 renderLinks ref j = case j of
-                        Json.Array l -> flow down (map (renderLink ref) l)
+                        Json.Array l -> flow down (map (\x -> Gfx.renderJsonBut [("title", Gfx.renderJson),
+                                                                                 ("rel", renderRel),
+                                                                                 ("href", renderLink ref x)]
+                                                                                x)
+                                                       l)
                         _            -> Gfx.renderJson j
 
 methods : String -> [(String, ActionUpdate)]
