@@ -115,17 +115,20 @@ renderHeaders ref hs =
 
 renderLink : String -> Json.Value -> Element
 renderLink ref j =
-    let link s e d = beside (Gfx.renderJson (Json.Object d))
-                            (Gfx.butt handle (Just (getReq (Just ref) s)) e)
-        rend d = case (Dict.get "href" d, Dict.get "rel" d) of
-                     (Just (Json.String h), Just (Json.Array [Json.String s])) -> liink h ref s
-                     (Just (Json.String h), Just r)               -> link h
-                                                                          (Gfx.renderJson r)
-                                                                          (Dict.remove "rel" (Dict.remove "href" d))
-                     (Just (Json.String h), Nothing)              -> link h
-                                                                          (plainText h)
-                                                                          (Dict.remove "href" d)
-                     _                                            -> Gfx.renderJson j
+    let link h j = Gfx.butt handle (Just (getReq (Just ref) h)) (Gfx.renderJson j)
+        relToString l = foldl (\j r -> case (j, r) of
+                                        (Json.String s, Just rs) -> Just (concat [rs, " ", s])
+                                        _                        -> Nothing)
+                              (Just "")
+                              l
+        relink h l = case relToString l of
+                         Just s  -> liink h ref s
+                         Nothing -> link h j
+        rend d = case (Dict.get "href" d, Dict.get "title" d, Dict.get "rel" d) of
+                     (Just (Json.String h), Just (Json.String t), _) -> liink h ref t
+                     (Just (Json.String h), _, Just (Json.Array l))  -> relink h l
+                     (Just (Json.String h), _, _)                    -> link h j
+                     _                                               -> Gfx.renderJson j
     in case j of
        Json.Object d -> rend d
        _             -> Gfx.renderJson j
