@@ -80,66 +80,78 @@ port inn : Signal (Maybe ReqResp)
 
 strToGUI : String -> String -> ActionDict -> Element
 strToGUI s ref fs =
-    let renderl = [("properties", Gfx.renderJsonBut [("name", Gfx.renderJson),
+    let renderl = [("title",  Gfx.renderJson),
+                   ("properties", Gfx.renderJsonBut [("name", Gfx.renderJson),
                                                      ("description", Gfx.renderJson)]),
                    ("links", renderLinks ref),
                    ("actions", renderActions fs ref)]
     in case Json.fromString s of
            Just x -> Gfx.renderJsonBut renderl x
-           _      -> plainText (concat ["not soap? :() ", s])
+           _      -> let e = plainText s
+                     in if widthOf e > 500 then width 500 e else e
+
+rendStatus r =
+    let ott = fittedImage 100 100 "sea-otter.jpg"
+        rs = if r.status == 303 then ott else plainText r.statusText
+        ls = plainText (concat ["Status: " , show (r.status), ", "])
+    in beside (container (widthOf ls) (heightOf rs) middle ls) rs
 
 respToGUI : Maybe ReqResp -> ActionDict -> Element
 respToGUI x fs =
     case x of
         Nothing           -> empty
         Just (_, Nothing) -> plainText "..."
-        Just (_, Just r)  -> flow down [(plainText (concat ["Status: " , show (r.status), ", ", r.statusText])),
+        Just (_, Just r)  -> flow down [rendStatus r,
                                         renderHeaders r.url r.headers,
                                         strToGUI r.body r.url fs]
-liink ref href =
-    let t = Text.toText href
+liink ref href s =
+    let t = Text.toText s
     in Input.customButton handle
                           (Just (getReq (Just ref) href))
                           (Text.leftAligned (Text.color Color.lightBlue t))
                           (Text.leftAligned  (Text.color Color.blue t))
                           (Text.leftAligned  (Text.color Color.darkBlue t))
 
-liiink ref j = case j of
-                   Json.String href -> liink ref href
-
-
 renderHeaders : String -> [Header] -> Element
 renderHeaders ref hs =
     let foo (k, v) = case k of
-                         "Location" -> (plainText "Location: ", liink ref v)
+                         "Location" -> (plainText "Location: ", liink ref v v)
                          _          -> (plainText (concat [k, ": "]), plainText v)
     in Gfx.renderKV (map foo hs)
 
-renderRel j =
+relToString : [Json.Value] -> Maybe String
+relToString l =
     let foo j r = case (j, r) of
+                      (Json.String s, Just "") -> Just s
                       (Json.String s, Just rs) -> Just (concat [rs, " ", s])
                       _                        -> Nothing
-        rend l = case foldl foo (Just "") l of
-                     Just s -> plainText s
-                     _      -> Gfx.renderJson j
+    in foldl foo (Just "") l
+
+
+renderLink : String -> Json.Value -> Element
+renderLink ref j =
+    let text h d = case (Dict.get "title" d, Dict.get "rel" d) of
+                     (Just (Json.String t), _) -> t
+                     (_, Just (Json.Array l))  -> (case relToString l of
+                                                       Just s -> s
+                                                       _      -> h)
+                     _                          -> h
+        rendLink h d = liink ref h (text h d)
+        rendImg h d = Gfx.bordered Color.darkGray
+                                   (above (leftAligned (Text.link h (Text.toText (text h d))))
+                                          (fittedImage 400 400 h)) 
     in case j of
-           Json.Array l -> rend l
-           _            -> Gfx.renderJson j
-
-
-renderLink : String -> Json.Value -> Json.Value -> Element
-renderLink ref j = case j of
-                       Json.Object d -> (case Dict.get "type" d of
-                                             _ -> liiink ref)
-                       _             -> liiink ref
+           Json.Object d -> (case (Dict.get "href" d, Dict.get "type" d) of
+                                 (Just (Json.String h), Just (Json.String s)) -> if String.slice 0 6 s == "image/"
+                                                                                 then rendImg h d
+                                                                                 else rendLink h d
+                                 (Just (Json.String h), _)                    -> rendLink h d
+                                 _                                            -> Gfx.renderJson j)
+           _             -> Gfx.renderJson j
 
 renderLinks : String -> Json.Value -> Element
 renderLinks ref j = case j of
-                        Json.Array l -> flow down (map (\x -> Gfx.renderJsonBut [("title", Gfx.renderJson),
-                                                                                 ("rel", renderRel),
-                                                                                 ("href", renderLink ref x)]
-                                                                                x)
-                                                       l)
+                        Json.Array l -> flow down (map (renderLink ref) l)
                         _            -> Gfx.renderJson j
 
 methods : String -> [(String, ActionUpdate)]
