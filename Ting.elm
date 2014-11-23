@@ -38,6 +38,11 @@ bodyFrom d =
     let foo l = map (\(k, c) -> concat[k, "=", c.string]) l
     in join "&" (foo (Dict.toList d))
 
+jsonGet : Json.Value -> String -> Maybe Json.Value
+jsonGet j s = case j of
+                  Json.Object d -> Dict.get s d
+                  _             -> Nothing
+
 binput = Input.input ()
 
 b = Input.button binput.handle () "beep"
@@ -130,24 +135,22 @@ relToString l =
 
 renderLink : String -> Json.Value -> Element
 renderLink ref j =
-    let text h d = case (Dict.get "title" d, Dict.get "rel" d) of
+    let text h = case (jsonGet j "title", jsonGet j "rel") of
                      (Just (Json.String t), _) -> t
                      (_, Just (Json.Array l))  -> (case relToString l of
                                                        Just s -> s
                                                        _      -> h)
                      _                          -> h
-        rendLink h d = liink ref h (text h d)
-        rendImg h d = Gfx.bordered Color.darkGray
-                                   (above (leftAligned (Text.link h (Text.toText (text h d))))
-                                          (fittedImage 400 400 h)) 
-    in case j of
-           Json.Object d -> (case (Dict.get "href" d, Dict.get "type" d) of
-                                 (Just (Json.String h), Just (Json.String s)) -> if String.slice 0 6 s == "image/"
-                                                                                 then rendImg h d
-                                                                                 else rendLink h d
-                                 (Just (Json.String h), _)                    -> rendLink h d
-                                 _                                            -> Gfx.renderJson j)
-           _             -> Gfx.renderJson j
+        rendLink h = liink ref h (text h)
+        rendImg h = Gfx.bordered Color.darkGray
+                                 (above (leftAligned (Text.link h (Text.toText (text h))))
+                                        (fittedImage 400 400 h)) 
+    in case (jsonGet j "href", jsonGet j "type") of
+           (Just (Json.String h), Just (Json.String s)) -> if String.slice 0 6 s == "image/"
+                                                           then rendImg h
+                                                           else rendLink h
+           (Just (Json.String h), _)                    -> rendLink h
+           _                                            -> Gfx.renderJson j
 
 renderLinks : String -> Json.Value -> Element
 renderLinks ref j = case j of
@@ -161,15 +164,13 @@ methods a = [("GET", UMethod a "GET"),
              ("DELETE", UMethod a "DELETE"),
              ("PATCH", UMethod a "PATCH")]
 
-renderAction : String -> String -> Maybe String -> String -> Action -> JsonDict -> Element
-renderAction name href method1 ref (Act method2 fs) d =
+renderAction : String -> String -> Maybe String -> String -> Action -> Json.Value -> Element
+renderAction name href method1 ref (Act method2 fs) j =
     let field s = Field.field Field.defaultStyle actionFieldInp.handle (UField name s) "" (Dict.getOrElse content s fs)
         content = Field.Content "" (Field.Selection 0 0 Field.Forward)
-        rendField f = case f of
-                          Json.Object d -> (case Dict.get "name" d of
-                                                Just (Json.String s) -> (plainText (concat [s, ": "]), field s)
-                                                _                    -> (plainText "???", Gfx.renderJson f))
-                          _             -> (plainText "weird json :|", Gfx.renderJson f)
+        rendField f = case jsonGet f "name" of
+                          Just (Json.String s) -> (plainText (concat [s, ": "]), field s)
+                          _                    -> (plainText "???", Gfx.renderJson f)
         rendFields fs = case fs of
                               Json.Array l -> Gfx.bordered Color.lightGrey (Gfx.renderKV (map rendField l))
                               _            -> Gfx.renderJson fs
@@ -187,7 +188,7 @@ renderAction name href method1 ref (Act method2 fs) d =
                                   ("href", Gfx.renderJson),
                                   ("method", Gfx.renderJson),
                                   ("fields", rendFields)]
-                                 (Json.Object d))
+                                 j)
               rendAct
 
 
@@ -195,20 +196,17 @@ renderAction name href method1 ref (Act method2 fs) d =
 renderActions : ActionDict -> String -> Json.Value -> Element
 renderActions afs ref j =
     let noAct = Act Nothing Dict.empty
-        method d = case Dict.get "method" d of
+        method a = case jsonGet a "method" of
                        Just (Json.String m) -> Just m
                        _                    -> Nothing
-        rendD d = case (Dict.get "name" d, Dict.get "href" d) of
-                      (Just (Json.String n), Just (Json.String h)) -> renderAction n
-                                                                                   h
-                                                                                   (method d)
-                                                                                   ref
-                                                                                   (Dict.getOrElse noAct n afs)
-                                                                                   d
-                      _                                            -> Gfx.renderJson (Json.Object d)
-        rend a = case a of
-                     Json.Object d -> rendD d
-                     _             -> Gfx.renderJson a
+        rend a = case (jsonGet a "name", jsonGet a "href") of
+                     (Just (Json.String n), Just (Json.String h)) -> renderAction n
+                                                                                  h
+                                                                                  (method a)
+                                                                                  ref
+                                                                                  (Dict.getOrElse noAct n afs)
+                                                                                  a
+                     _                                           -> Gfx.renderJson a
     in case j of
         Json.Array l -> flow down (map rend l)
         _            -> Gfx.renderJson j
