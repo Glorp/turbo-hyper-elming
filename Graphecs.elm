@@ -6,6 +6,7 @@ import Dict
 import Color
 
 type JsonDict = Dict.Dict String Json.Value
+data Elem = Labeled Element | Only Element
 
 spacec : Color.Color -> Element -> Element
 spacec c e = color c (container (4 + widthOf e) (4 + heightOf e) middle e)
@@ -28,23 +29,29 @@ renderJson x = case x of
                                          [] -> empty
                                          l  -> bordered Color.darkGrey (renderKV l)
 
-renderD : JsonDict -> [(Element, Element)]
-renderD d = let render (k, v) = (plainText (concat [k, ": "]), renderJson v)
+renderD : JsonDict -> [(String, Elem)]
+renderD d = let render (k, v) = (k, Labeled (renderJson v))
             in map render (Dict.toList d)
 
-renderKV : [(Element, Element)] -> Element
-renderKV l = let maxW = foldl (\(e, _) n -> max (widthOf e) n) 0 l
-                 foo (e1, e2) = beside (leftAl maxW e1) e2
-             in flow down (map spacey (map foo l))
+renderKV : [(String, Elem)] -> Element
+renderKV l = let renderedL = map (\(s, e) -> (plainText (concat [s, ":  "]), e)) l
+                 maxOf (le, re) n = case re of
+                                        Labeled e -> max (widthOf le) n
+                                        _         -> n
+                 maxW = foldl maxOf 0 renderedL
+                 foo (le, re) = case re of
+                                    Labeled e -> beside (leftAl maxW le) e
+                                    Only e    -> e
+             in flow down (map spacey (map foo renderedL))
 
-renderJsonBut : [(String, Json.Value -> Element)] -> Json.Value -> Element
+renderJsonBut : [(String, Json.Value -> Elem)] -> Json.Value -> Element
 renderJsonBut l j =
     let remove d kvs = foldl Dict.remove d (map fst kvs)
         consDKV d (k, f) kvs = case Dict.get k d of
                              Just v  -> (k, f, v) :: kvs
                              Nothing -> kvs
         keyVals d kvs = foldr (consDKV d) [] kvs
-        render (k, f, v) = (plainText (concat [k, ": "]), f v)
+        render (k, f, v) = (k, f v)
     in case j of
            Json.Object d -> bordered Color.darkGray (renderKV (concat [map render (keyVals d l), renderD (remove d l)]))
            _             -> renderJson j

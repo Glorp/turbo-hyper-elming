@@ -83,13 +83,23 @@ port out = reqSig
 
 port inn : Signal (Maybe ReqResp)
 
+renderJ : Json.Value -> Gfx.Elem
+renderJ = Gfx.renderJson >> Gfx.Labeled
+renderJBut : [(String, Json.Value -> Gfx.Elem)] -> Json.Value -> Gfx.Elem
+renderJBut l = Gfx.renderJsonBut l >> Gfx.Labeled
+
+renderTitle : Json.Value -> Gfx.Elem
+renderTitle j = case j of
+                    Json.String s -> Gfx.Only (Text.leftAligned (Text.bold (Text.height 14 (Text.toText s))))
+                    _             -> Gfx.Labeled (Gfx.renderJson j)
+
 strToGUI : String -> String -> ActionDict -> Element
 strToGUI s ref fs =
-    let renderl = [("title",  Gfx.renderJson),
-                   ("properties", Gfx.renderJsonBut [("name", Gfx.renderJson),
-                                                     ("description", Gfx.renderJson)]),
-                   ("links", renderLinks ref),
-                   ("actions", renderActions fs ref)]
+    let renderl = [("title",  renderTitle),
+                   ("properties", renderJBut [("name", renderJ),
+                                              ("description", renderJ)]),
+                   ("links", renderLinks ref >> Gfx.Labeled),
+                   ("actions", renderActions fs ref >> Gfx.Labeled)]
     in case Json.fromString s of
            Just x -> Gfx.renderJsonBut renderl x
            _      -> let e = plainText s
@@ -120,8 +130,8 @@ liink ref href s =
 renderHeaders : String -> [Header] -> Element
 renderHeaders ref hs =
     let foo (k, v) = case k of
-                         "Location" -> (plainText "Location: ", liink ref v v)
-                         _          -> (plainText (concat [k, ": "]), plainText v)
+                         "Location" -> ("Location: ", Gfx.Labeled (liink ref v v))
+                         _          -> (concat [k, ": "], Gfx.Labeled (plainText v))
     in Gfx.renderKV (map foo hs)
 
 relToString : [Json.Value] -> Maybe String
@@ -169,8 +179,8 @@ renderAction name href method1 ref (Act method2 fs) j =
     let field s = Field.field Field.defaultStyle actionFieldInp.handle (UField name s) "" (Dict.getOrElse content s fs)
         content = Field.Content "" (Field.Selection 0 0 Field.Forward)
         rendField f = case jsonGet f "name" of
-                          Just (Json.String s) -> (plainText (concat [s, ": "]), field s)
-                          _                    -> (plainText "???", Gfx.renderJson f)
+                          Just (Json.String s) -> (concat [s, ": "], Gfx.Labeled (field s))
+                          _                    -> ("???", Gfx.Labeled (Gfx.renderJson f))
         rendFields fs = case fs of
                               Json.Array l -> Gfx.bordered Color.lightGrey (Gfx.renderKV (map rendField l))
                               _            -> Gfx.renderJson fs
@@ -183,11 +193,11 @@ renderAction name href method1 ref (Act method2 fs) j =
                       Just _  -> button
                       Nothing -> above (Input.dropDown actionFieldInp.handle (methods name)) button
 
-    in beside (Gfx.renderJsonBut [("title", Gfx.renderJson),
-                                  ("name", Gfx.renderJson),
-                                  ("href", Gfx.renderJson),
-                                  ("method", Gfx.renderJson),
-                                  ("fields", rendFields)]
+    in beside (Gfx.renderJsonBut [("title", renderTitle),
+                                  ("name", renderJ),
+                                  ("href", renderJ),
+                                  ("method", renderJ),
+                                  ("fields", rendFields >> Gfx.Labeled)]
                                  j)
               rendAct
 
