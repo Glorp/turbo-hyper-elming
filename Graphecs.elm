@@ -45,7 +45,12 @@ renderKV l = let renderedL = map (\(s, e) -> (plainText (concat [s, ":  "]), e))
              in flow down (map spacey (map foo renderedL))
 
 renderJsonBut : [(String, Json.Value -> Elem)] -> Json.Value -> Element
-renderJsonBut l j =
+renderJsonBut l j = case renderJsonHalp l j of
+                        Just l -> bordered Color.darkGray (renderKV l)
+                        _      -> renderJson j
+
+renderJsonHalp : [(String, Json.Value -> Elem)] -> Json.Value -> Maybe [(String, Elem)]
+renderJsonHalp l j =
     let remove d kvs = foldl Dict.remove d (map fst kvs)
         consDKV d (k, f) kvs = case Dict.get k d of
                              Just v  -> (k, f, v) :: kvs
@@ -53,8 +58,8 @@ renderJsonBut l j =
         keyVals d kvs = foldr (consDKV d) [] kvs
         render (k, f, v) = (k, f v)
     in case j of
-           Json.Object d -> bordered Color.darkGray (renderKV (concat [map render (keyVals d l), renderD (remove d l)]))
-           _             -> renderJson j
+           Json.Object d -> Just (concat [map render (keyVals d l), renderD (remove d l)])
+           _             -> Nothing
 
 butt : Input.Handle a -> a -> Element -> Element
 butt h v e = Input.customButton h v (bordered (Color.lightBlue) e)

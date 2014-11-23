@@ -45,7 +45,7 @@ jsonGet j s = case j of
 
 binput = Input.input ()
 
-b = Input.button binput.handle () "beep"
+b = width 80 (height 20 (Input.button binput.handle () "GET"))
 
 things : (Signal Element, Input.Handle (Maybe Request), Signal (Maybe Request))
 things = let addr = "http://hyperwizard.azurewebsites.net/hywit/void"
@@ -188,20 +188,24 @@ renderAction name href method1 ref (Act method2 fs) j =
                      (Just m, _) -> m
                      (_, Just m) -> m
                      (_, _)      -> "GET"
-        button = Input.button handle (Just (req (Just ref) href method (bodyFrom fs))) "boop"
-        rendAct = case method1 of
-                      Just _  -> button
-                      Nothing -> above (Input.dropDown actionFieldInp.handle (methods name)) button
-
-    in beside (Gfx.renderJsonBut [("title", renderTitle),
-                                  ("name", renderJ),
-                                  ("href", renderJ),
-                                  ("method", renderJ),
-                                  ("fields", rendFields >> Gfx.Labeled)]
-                                 j)
-              rendAct
-
-
+        renderL = [("title", renderTitle),
+                   ("name", renderJ),
+                   ("href", renderJ),
+                   ("method", \_ -> Gfx.Only empty),
+                   ("fields", rendFields >> Gfx.Labeled)]
+        rendered = case Gfx.renderJsonHalp renderL j of
+                       Just l -> Gfx.renderKV l
+                       _      -> Gfx.renderJson j
+        button = width 80 (height 20 (Input.button handle (Just (req (Just ref) href method (bodyFrom fs))) method))
+        drop = width 80 (height 20 (Input.dropDown actionFieldInp.handle (methods name)))
+        renderedAct = case method1 of
+                          Just _  -> button
+                          Nothing -> beside drop button
+    in Gfx.bordered Color.darkGray (above rendered
+                                          (container (widthOf rendered)
+                                                     (heightOf renderedAct + 4)
+                                                     midRight
+                                                     renderedAct))
 
 renderActions : ActionDict -> String -> Json.Value -> Element
 renderActions afs ref j =
