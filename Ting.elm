@@ -54,7 +54,7 @@ things = let addr = "http://hyperwizard.azurewebsites.net/hywit/void"
              fieldSig = sampleOn binput.signal content
              fieldReqSig = lift (.string >> (getReq Nothing) >> Just) fieldSig
              reqSig = merge fieldReqSig inp.signal
-         in (field, inp.handle, reqSig)
+         in (lift (width 400) field, inp.handle, reqSig)
 
 (field, handle, reqSig) = things
 
