@@ -130,8 +130,8 @@ liink ref href s =
 renderHeaders : String -> [Header] -> Element
 renderHeaders ref hs =
     let foo (k, v) = case k of
-                         "Location" -> ("Location: ", Gfx.Labeled (liink ref v v))
-                         _          -> (concat [k, ": "], Gfx.Labeled (plainText v))
+                         "Location" -> (k, Gfx.Labeled (liink ref v v))
+                         _          -> (k, Gfx.Labeled (plainText v))
     in Gfx.renderKV (map foo hs)
 
 relToString : [Json.Value] -> Maybe String
@@ -179,8 +179,8 @@ renderAction name href method1 ref (Act method2 fs) j =
     let field s = Field.field Field.defaultStyle actionFieldInp.handle (UField name s) "" (Dict.getOrElse content s fs)
         content = Field.Content "" (Field.Selection 0 0 Field.Forward)
         rendField f = case jsonGet f "name" of
-                          Just (Json.String s) -> (concat [s, ": "], Gfx.Labeled (field s))
-                          _                    -> ("???", Gfx.Labeled (Gfx.renderJson f))
+                          Just (Json.String s) -> (s, Gfx.Labeled (field s))
+                          _                    -> ("", Gfx.Only (Gfx.renderJson f))
         rendFields fs = case fs of
                               Json.Array l -> Gfx.bordered Color.lightGrey (Gfx.renderKV (map rendField l))
                               _            -> Gfx.renderJson fs
